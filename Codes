@@ -1,0 +1,49 @@
+data <- read.csv('data.csv')
+
+data[data == 'A'] <- 0
+
+grading_scale <- list(
+  c(85, 'A+'),
+  c(80, 'A'),
+  c(75, 'B+'),
+  c(65, 'B'),
+  c(58, 'C+'),
+  c(55, 'C-'),
+  c(50, 'D'),
+  c(0, 'F')
+)
+
+convert_marks_to_grade <- function(marks) {
+  marks <- as.integer(marks)
+  for (i in 1:length(grading_scale)) {
+    threshold <- grading_scale[[i]][1]
+    grade <- grading_scale[[i]][2]
+    if (marks >= threshold) {
+      return(grade)
+    }
+  }
+}
+
+data$FOP <- sapply(data$FOP, convert_marks_to_grade)
+data$OOPS <- sapply(data$OOPS, convert_marks_to_grade)
+
+data_encoded <- data.frame(model.matrix(~ FOP + OOPS - 1, data))
+
+library(arules)
+
+frequent_itemsets <- apriori(data_encoded, parameter = list(support = 0.1, minlen = 2), appearance = list(rhs = names(data_encoded)))
+
+rules <- as(rules(frequent_itemsets, metric = "confidence", minlen = 2), "data.frame") %>%
+  arrange(desc(confidence))
+
+most_frequent_pair <- sort(frequent_itemsets, decreasing = TRUE, by = "support")[1, ]
+print("Most Frequent Pair of grades:")
+print(most_frequent_pair)
+
+print("\nStrong Association Rules:")
+for (i in 1:nrow(rules)) {
+  antecedents <- paste(rules[i, "lhs"], collapse = ", ")
+  consequents <- paste(rules[i, "rhs"], collapse = ", ")
+  confidence <- rules[i, "confidence"]
+  print(paste(antecedents, "-->", consequents, "(confidence:", confidence, ")"))
+}
